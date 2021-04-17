@@ -1,4 +1,4 @@
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/attiqub.png
+.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_readme.png
     :width: 300 px
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat-square
@@ -29,29 +29,39 @@ ATTIQUB
 
 A MATLAB application that allows for attitude control simulations, for formation flying satellites.
 
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/attiqub.png
+.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_app.png
     :width: 300 px
 
 **Key (Intended) Features**
 
 Three different attitude coordinates
+
 - Quarternions
 - Classical Rodrigues Parameters
 - Modified Rodrigues Parameters
 
 Four different control scenarios
+
 - Nadir Pointing
 - Sun Pointing
 - Inter-satellite Pointing
 - Regulation Mode (De-Tumbling)
 
 Five different primary bodies
+
 - Earth, Moon, Mars, Venus, Mercury
 
 Some screenshots of existing works...
 
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/attiqub.png
-    :width: 300 px
+.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_plot1_torque.png
+
+.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_plot2_omega.png
+
+.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_plot3_attitude.png
+
+.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_plot4_orbit.png
+
+
 
 **ATTIQUB IS STILL WORK IN PROGRESS AND NOT STABLE FOR RELEASE YET**
 
