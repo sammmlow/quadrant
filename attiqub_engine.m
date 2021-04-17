@@ -11,7 +11,7 @@
 % ###  Version 0.5 (Alpha)                                            ###
 % ###  By Samuel Low, DSO National Laboratories                       ###
 % ###  First Build: 10-12-2020                                        ###
-% ###  Last Modified: 13-01-2021                                      ###
+% ###  Last Modified: 17-04-2021                                      ###
 % ###                                                                 ###
 % #######################################################################
 % #######################################################################
@@ -42,7 +42,7 @@ load('parameters.mat');
 % ATTIQUB must resolve all file paths in order to access libraries.
 attqubPath = mfilename('fullpath');
 [directory, ~, ~]  = fileparts(attqubPath);
-srcPaths = {[ directory '\graphics\'                   ];  ...
+srcPaths = {[ directory '\images\'                     ];  ...
             [ directory '\source\'                     ];  ...
             [ directory '\source\attiqub_att_ctrl\'    ];  ...
             [ directory '\source\attiqub_att_refn\'    ];  ...
