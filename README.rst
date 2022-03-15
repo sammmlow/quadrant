@@ -13,7 +13,7 @@
    :target: https://www.linkedin.com/in/sammmlow
 
 :Project: QUADRANT
-:Github: https://github.com/sammmlow/ATTIQUB
+:Github: https://github.com/sammmlow/quadrant
 :Documents: Work In Progress
 :Version: 0.0 (Unreleased)
 

@@ -96,7 +96,7 @@ html_theme_options = {
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Add the HTML logo that displays on the top-left panel.
-html_logo = dir_path + '\\_static\\favicon.png'
+html_logo = dir_path + '/_static/favicon.png'
 
 # Add the HTML logo.
-html_favicon = dir_path + '\\_static\\favicon.png'
+html_favicon = dir_path + '/_static/favicon.png'
