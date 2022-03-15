@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Function Reference &mdash; QUADRANT 0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/favicon.png"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="First steps" href="docs_firststep.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #222A35" >
+            <a href="index.html" class="icon icon-home"> QUADRANT
+            <img src="_static/favicon.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="docs_install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docs_firststep.html">First steps</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Advanced References</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Function Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#spacecraft-py">spacecraft.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#attitudes-py">attitudes.py</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #222A35" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">QUADRANT</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Function Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/docs_functions.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img alt="_images/quadrant_logo.png" src="_images/quadrant_logo.png" />
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<section id="function-reference">
+<h1>Function Reference<a class="headerlink" href="#function-reference" title="Permalink to this headline"></a></h1>
+<p>The order of functions in this API reference goes according to the chronological order of which they are called in the native LEOGPS processing work flow (see previous page). Functions that are currently not in use in the current native work flow are listed at the end of this page.</p>
+<hr class="docutils" />
+<section id="spacecraft-py">
+<h2>spacecraft.py<a class="headerlink" href="#spacecraft-py" title="Permalink to this headline"></a></h2>
+<p>Spacecraft object</p>
+<span class="target" id="module-spacecraft"></span><dl class="py class">
+<dt class="sig sig-object py" id="spacecraft.Spacecraft">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">spacecraft.</span></span><span class="sig-name descname"><span class="pre">Spacecraft</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">states</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attBN</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ohmBN</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attBR</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ohmBR</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mass</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Cd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">GM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#spacecraft.Spacecraft" title="Permalink to this definition"></a></dt>
+<dd><p>Initialise a spacecraft object with state attributes, attitude attributes,
+angular velocities, and area-mass parameters.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spacecraft.Spacecraft.elements">
+<span class="sig-name descname"><span class="pre">elements</span></span><a class="headerlink" href="#spacecraft.Spacecraft.elements" title="Permalink to this definition"></a></dt>
+<dd><p>List of 6 Keplerian elements [a, e, i, R, w, M].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list (optional)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spacecraft.Spacecraft.states">
+<span class="sig-name descname"><span class="pre">states</span></span><a class="headerlink" href="#spacecraft.Spacecraft.states" title="Permalink to this definition"></a></dt>
+<dd><p>List of 6 Cartesian states [px, py, pz, vx, vy, vz].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list (optional)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spacecraft.Spacecraft.mass">
+<span class="sig-name descname"><span class="pre">mass</span></span><a class="headerlink" href="#spacecraft.Spacecraft.mass" title="Permalink to this definition"></a></dt>
+<dd><p>Drag mass of spacecraft (kg). The default is 1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float, optional</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spacecraft.Spacecraft.area">
+<span class="sig-name descname"><span class="pre">area</span></span><a class="headerlink" href="#spacecraft.Spacecraft.area" title="Permalink to this definition"></a></dt>
+<dd><p>Drag area of spacecraft (m^2). The default is 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float, optional</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spacecraft.Spacecraft.Cd">
+<span class="sig-name descname"><span class="pre">Cd</span></span><a class="headerlink" href="#spacecraft.Spacecraft.Cd" title="Permalink to this definition"></a></dt>
+<dd><p>Dimensionless drag coefficient. The default is 2.2.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float, optional</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spacecraft.Spacecraft.name">
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#spacecraft.Spacecraft.name" title="Permalink to this definition"></a></dt>
+<dd><p>Custom name for the spacecraft object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str, optional</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="spacecraft.Spacecraft.GM">
+<span class="sig-name descname"><span class="pre">GM</span></span><a class="headerlink" href="#spacecraft.Spacecraft.GM" title="Permalink to this definition"></a></dt>
+<dd><p>Product of planet mass and gravitational constant (km**3/s**2)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float, optional</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<hr class="docutils" />
+<section id="attitudes-py">
+<h2>attitudes.py<a class="headerlink" href="#attitudes-py" title="Permalink to this headline"></a></h2>
+<p>Attitude file containing attitude classes (quaternions, classical rodrigues parameters and modified rodrigues parameters).</p>
+<span class="target" id="module-attitudes"></span><p>Created on Tue Nov 23 16:18:36 2021</p>
+<p>&#64;author: sammm</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="attitudes.QTR">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">attitudes.</span></span><span class="sig-name descname"><span class="pre">QTR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qtr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dcm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#attitudes.QTR" title="Permalink to this definition"></a></dt>
+<dd><p>A Quaternion (QTR) class can be initialised with either a 1x4
+NumPy array, or a direction cosine as a 3x3 NumPy array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>qtr</strong> (<em>TYPE</em><em>, </em><em>optional</em>) – DESCRIPTION. The default is None.</p></li>
+<li><p><strong>dcm</strong> (<em>TYPE</em><em>, </em><em>optional</em>) – DESCRIPTION. The default is None.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<hr class="docutils" />
+<p>This API reference was automatically generated using Sphinx’ Autodoc feature, using the <a class="reference external" href="https://numpydoc.readthedocs.io/en/latest/format.html">NumPy docstring format</a>, and last updated on 11th September 2021.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="docs_firststep.html" class="btn btn-neutral float-left" title="First steps" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Samuel Y. W. Low.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-XXXXXXX-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-XXXXXXX-1', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

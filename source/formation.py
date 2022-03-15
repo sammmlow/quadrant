@@ -1,13 +1,29 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Sun Nov  7 16:50:41 2021
 
-@author: sammm
-"""
+###############################################################################
+###############################################################################
+##                                                                           ##
+##      ___  _   _   __   ____  ____   __   _   _ _____                      ##
+##     / _ \| | | | /  \ |  _ \| __ \ /  \ | \ | |_   _|                     ##
+##    ( |_| ) |_| |/ /\ \| |_| | -/ // /\ \|  \| | | |                       ##
+##     \_  /|_____| /--\ |____/|_|\_\ /--\ |_\___| |_|                       ##
+##       \/                                               v 0.0              ##
+##                                                                           ##
+##    FILE DESCRIPTION:                                                      ##
+##                                                                           ##
+##    This file contains the relative orbit propagation function. It takes   ##
+##    the 06x chief and deputy orbit Keplerian elements (in km and radians)  ##
+##    as input, and outputs the Hill-frame position and velocity vectors as  ##
+##    two sets of Nx3 NumPy matrices, where N = total number of samples.     ##
+##                                                                           ##
+##    Written by Samuel Y. W. Low.                                           ##
+##    First created 16-May-2021 15:56 AM (+8 GMT)                            ##
+##    Last modified 15-Mar-2022 14:03 PM (-8 GMT)                            ##
+##                                                                           ##
+###############################################################################
+###############################################################################
 
 import numpy as np
-from source import rotation
-from source import spacecraft
 
 class Formation():
     
@@ -25,18 +41,19 @@ class Formation():
 
         '''
         
-        self.sC = sC # Chief
-        self.sD = sD # Deputy
-        self.update_ROE( sC, sD )
-        self.update_RTN( sC, sD )
+        try:
+            self.sC = sC # Chief
+            self.sD = sD # Deputy
+            self.update_ROE( sC, sD )
+            self.update_RTN( sC, sD )
             
-        # except AttributeError:
-        #     print("AttributeError: Check if constructor has 02x Spacecraft()?")
-        # except TypeError:
-        #     print("TypeError: Inputs must be instances of Spacecraft()!")
-        # except:
-        #     print("Unknown error occurred. Printing constructor args:")
-        #     print(sC, sD)
+        except AttributeError:
+            print("AttributeError: Check if constructor has 02x Spacecraft()?")
+        except TypeError:
+            print("TypeError: Inputs must be instances of Spacecraft()!")
+        except:
+            print("Unknown error occurred. Printing constructor args:")
+            print(sC, sD)
 
     # Convert Keplerian orbit elements to relative orbit elements exactly.
     def update_ROE(self, sC, sD):
@@ -58,19 +75,6 @@ class Formation():
         self.sD = sD # Deputy
         pC  = np.array([ self.sC.px, self.sC.py, self.sC.pz ])
         pD  = np.array([ self.sD.px, self.sD.py, self.sD.pz ])
-        self.compute_hill_dcm() # Updates self.hill_dcm
+        self.get_hill_dcm() # Updates self.hill_dcm
         self.RTN = self.hill_dcm @ ( pC - pD )
-        return self.RTN
-        
-    # Compute the Hill-Frame 
-    def compute_hill_dcm(self):
-        pC = [ self.sC.px, self.sC.py, self.sC.pz ] # Position of chief
-        vC = [ self.sC.vx, self.sC.vy, self.sC.vz ] # Velocity of chief
-        hC = np.cross(pC, vC)                       # Angular momentum vector
-        r_hat = pC / np.linalg.norm(pC)             # Local X-axis
-        h_hat = hC / np.linalg.norm(hC)             # Local Z-axis
-        y_hat = np.cross(h_hat, r_hat)              # Local Y-axis
-        self.hill_dcm = np.array([r_hat, y_hat, h_hat])
-        return self.hill_dcm
-        
-        
+    

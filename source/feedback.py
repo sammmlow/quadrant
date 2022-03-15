@@ -7,7 +7,7 @@ Created on Tue Nov 23 23:25:33 2021
 import numpy as np
 from source import attitudes
 
-def control_QRT( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
+def control_QTR( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
                  inertia, prevTorque, intgErr ):
 
     # ------------------------------------------------------------------------
@@ -80,21 +80,21 @@ def control_QRT( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
     # in order to perform vector operations on them, you must call the
     # attribute `q` to draw out the quarternion as a NumPy array.
     
-    if np.dot( qBN.q, qBN.q ) != 1.0:
-        qBN.q = qBN.q / np.linalg.norm( qBN.q )
+    if np.dot( qBN.qtr, qBN.qtr ) != 1.0:
+        qBN.qtr = qBN.qtr / np.linalg.norm( qBN.qtr )
         
     # Initialise the reference-to-body and reference-to-inertial attitudes.
     dcmBN = qBN.dcm
     dcmBR = dcmBN @ dcmRN.T
-    qBR = attitudes.QRT( dcm = dcmBR )
+    qBR = attitudes.QTR( dcm = dcmBR )
     
     # Second check: Ensure that the quarternions always have norm = 1.
-    if np.dot( qBR.q, qBR.q ) != 1.0:
-        qBR.q = qBR.q / np.linalg.norm( qBR.q )
+    if np.dot( qBR.qtr, qBR.qtr ) != 1.0:
+        qBR.qtr = qBR.qtr / np.linalg.norm( qBR.qtr )
         
     # Check if the current quarternion describes the short or long rotation.
     if qBR[0] < 0.0:
-        qBR.q = -1 * qBR.q
+        qBR.qtr = -1 * qBR.qtr
         
     # The original wRN is seen in the N-frame. Convert to B-frame.
     wRN = dcmBN @ wRN
@@ -104,7 +104,7 @@ def control_QRT( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
     
     # Trigger the control response at the control time step `ct`.
     if t % ct  == 0.0:
-        torque =  ( -1 * Kp * qBR.q[1:] )
+        torque =  ( -1 * Kp * qBR.qtr[1:] )
         torque -= ( Kd * wBR )
         torque -= ( Ki * Kp * intgErr[1:] )
         
@@ -119,15 +119,14 @@ def control_QRT( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
     
     # Check if the current quarternion describes the short or long rotation.
     if qBN[0] < 0.0:
-        qBN.q = -1 * qBN.q
+        qBN.qtr = -1 * qBN.qtr
         
     # Use the quarternion rate method inherent in the quarternion class.
-    qDotBN = qBN.compute_qrate( wBN )
+    qDotBN = qBN.get_qtrRate( wBN )
     
     # Actual numerical integration via first order derivative update.
-    wBN = wBN + ( dt * wDotBN )
-    qBN.q = qBN.q + ( dt * qDotBN )
-    intgErr = intgErr + ( qBR.q * dt )
+    qBN.qtr = qBN.qtr + ( dt * qDotBN )
+    intgErr = intgErr + ( qBR.qtr * dt )
     
     # Return the attitude and angular velocity errors with respect to the
     # reference target, with respect to the inertial frame, the integration

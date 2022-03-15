@@ -145,7 +145,7 @@ inertia    = np.diag([10,10,10])      # Spacecraft principal inertia tensor.
 Kp, Ki, Kd = 0.016, 0.0, 0.4          # Initial (Lyapunov) control gains
 
 # Initialise attitudes and rates.
-aBN = attitudes.QRT( q = [1,0,0,0] )  # Chief body-inertial attitude.
+aBN = attitudes.QTR( qtr = [1,0,0,0] )# Chief body-inertial attitude.
 wBN = np.array([0.0, 0.0, 0.0])       # Chief body-inertial angular velocity.
 
 # Initialise arrays for plotting the dynamics.
@@ -183,7 +183,7 @@ def simulate_pointing( dt, ct, sC, sD, Kp, Ki, Kd, aBN, wBN,
         dcmRN, wRN = targeting.reference_deputy( dt, sC, sD, dcmRN )
         
         # Compute the feedback errors and control torques.
-        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QRT( t, dt, ct, 
+        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QTR( t, dt, ct, 
             Kp, Ki, Kd, aBN, wBN, wRN, dcmRN, inertia, torq, intgErr )
         
         # Propagate both the spacecrafts
@@ -221,7 +221,7 @@ def simulate_sun_pointing( dt, ct, sC, Kp, Ki, Kd, aBN, wBN,
         dcmRN, wRN = targeting.reference_sun()
         
         # Compute the feedback errors and control torques.
-        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QRT( t, dt, ct, 
+        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QTR( t, dt, ct, 
             Kp, Ki, Kd, aBN, wBN, wRN, dcmRN, inertia, torq, intgErr )
         
         # Propagate both the spacecrafts
@@ -397,7 +397,7 @@ if mode == modes[0]:
             dcmRN, wRN = targeting.reference_deputy( dt, sC, sD, dcmRN )
         
         # Compute the feedback errors and control torques.
-        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QRT( t, dt, ct,
+        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QTR( t, dt, ct,
                                                                   Kp, Ki, Kd,
                                                                   aBN, wBN,
                                                                   wRN, dcmRN,
@@ -415,8 +415,8 @@ if mode == modes[0]:
         power -= pdrain
         
         # Update matrices for plotting.
-        aBN_array = np.vstack( [aBN_array, aBN.q] )
-        aBR_array = np.vstack( [aBR_array, aBR.q] )
+        aBN_array = np.vstack( [aBN_array, aBN.qtr] )
+        aBR_array = np.vstack( [aBR_array, aBR.qtr] )
         wBN_array = np.vstack( [wBN_array, np.append(wBN,  norm(wBN))] )
         wBR_array = np.vstack( [wBR_array, np.append(wBR,  norm(wBR))] )
         trq_array = np.vstack( [trq_array, np.append(torq, norm(torq))] )
@@ -676,7 +676,7 @@ if mode == modes[1]:
             dcmRN, wRN = targeting.reference_deputy( dt, sC, sD, dcmRN )
         
         # Compute the feedback errors and control torques.
-        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QRT( t, dt, ct,
+        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QTR( t, dt, ct,
                                                                   Kp, Ki, Kd,
                                                                   aBN, wBN,
                                                                   wRN, dcmRN,
@@ -694,8 +694,8 @@ if mode == modes[1]:
         power -= pdrain
         
         # Update matrices for plotting.
-        aBN_array = np.vstack( [aBN_array, aBN.q] )
-        aBR_array = np.vstack( [aBR_array, aBR.q] )
+        aBN_array = np.vstack( [aBN_array, aBN.qtr] )
+        aBR_array = np.vstack( [aBR_array, aBR.qtr] )
         wBN_array = np.vstack( [wBN_array, np.append(wBN,  norm(wBN))] )
         wBR_array = np.vstack( [wBR_array, np.append(wBR,  norm(wBR))] )
         trq_array = np.vstack( [trq_array, np.append(torq, norm(torq))] )
@@ -922,7 +922,7 @@ if mode == modes[2]:
             dcmRN, wRN = targeting.reference_deputy( dt, sC, sD, dcmRN )
         
         # Compute the feedback errors and control torques.
-        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QRT( t, dt, ct,
+        aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QTR( t, dt, ct,
                                                                   Kp, Ki, Kd,
                                                                   aBN, wBN,
                                                                   wRN, dcmRN,
@@ -940,8 +940,8 @@ if mode == modes[2]:
         power -= pdrain
         
         # Update matrices for plotting.
-        aBN_array = np.vstack( [aBN_array, aBN.q] )
-        aBR_array = np.vstack( [aBR_array, aBR.q] )
+        aBN_array = np.vstack( [aBN_array, aBN.qtr] )
+        aBR_array = np.vstack( [aBR_array, aBR.qtr] )
         wBN_array = np.vstack( [wBN_array, np.append(wBN,  norm(wBN))] )
         wBR_array = np.vstack( [wBR_array, np.append(wBR,  norm(wBR))] )
         trq_array = np.vstack( [trq_array, np.append(torq, norm(torq))] )
@@ -1177,7 +1177,7 @@ if mode == modes[2]:
 #             dcmRN, wRN = targeting.reference_deputy( dt, sC, sD, dcmRN )
         
 #         # Compute the feedback errors and control torques.
-#         aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QRT( t, dt, ct,
+#         aBR, wBR, aBN, wBN, torq, intgErr = feedback.control_QTR( t, dt, ct,
 #                                                                   Kp, Ki, Kd,
 #                                                                   aBN, wBN,
 #                                                                   wRN, dcmRN,
@@ -1195,8 +1195,8 @@ if mode == modes[2]:
 #         power -= pdrain
         
 #         # Update matrices for plotting.
-#         aBN_array = np.vstack( [aBN_array, aBN.q] )
-#         aBR_array = np.vstack( [aBR_array, aBR.q] )
+#         aBN_array = np.vstack( [aBN_array, aBN.qtr] )
+#         aBR_array = np.vstack( [aBR_array, aBR.qtr] )
 #         wBN_array = np.vstack( [wBN_array, np.append(wBN,  norm(wBN))] )
 #         wBR_array = np.vstack( [wBR_array, np.append(wBR,  norm(wBR))] )
 #         trq_array = np.vstack( [trq_array, np.append(torq, norm(torq))] )
