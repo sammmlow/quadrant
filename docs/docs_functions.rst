@@ -38,7 +38,7 @@ attitudes.py
 Attitude file containing attitude classes (quaternions, classical rodrigues parameters and modified rodrigues parameters).
 
 .. automodule:: attitudes
-   :members:
+   :members: QTR, CRP, MRP
 
 ####
 
