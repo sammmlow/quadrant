@@ -1,11 +1,10 @@
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_readme.png
-    :width: 300 px
+.. image:: https://raw.githubusercontent.com/sammmlow/quadrant/main/docs/_static/quadrant_logo.png
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat-square
    :target: https://readthedocs.org/
 
 .. |license| image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square
-   :target: https://github.com/sammmlow/ATTIQUB/blob/main/LICENSE
+   :target: https://github.com/sammmlow/quadrant/blob/main/LICENSE
    
 .. |orcid| image:: https://img.shields.io/badge/ID-0000--0002--1911--701X-a6ce39.svg
    :target: https://orcid.org/0000-0002-1911-701X/
@@ -13,7 +12,7 @@
 .. |linkedin| image:: https://img.shields.io/badge/LinkedIn-sammmlow-blue.svg
    :target: https://www.linkedin.com/in/sammmlow
 
-:Project: ATTIQUB
+:Project: QUADRANT
 :Github: https://github.com/sammmlow/ATTIQUB
 :Documents: Work In Progress
 :Version: 0.0 (Unreleased)
@@ -24,13 +23,10 @@
 
 |linkedin| |orcid|
 
-ATTIQUB
+QUADRANT
 ------
 
-A MATLAB application that allows for attitude control simulations, for formation flying satellites.
-
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_app.png
-    :width: 300 px
+A Python application that allows for attitude control simulations, for formation flying satellites.
 
 **Key (Intended) Features**
 
@@ -47,23 +43,7 @@ Four different control scenarios
 - Inter-satellite Pointing
 - Regulation Mode (De-Tumbling)
 
-Five different primary bodies
-
-- Earth, Moon, Mars, Venus, Mercury
-
-Some screenshots of existing works...
-
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_plot1_torque.png
-
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_plot2_omega.png
-
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_plot3_attitude.png
-
-.. image:: https://raw.githubusercontent.com/sammmlow/ATTIQUB/main/images/attiqub_plot4_orbit.png
-
-
-
-**ATTIQUB IS STILL WORK IN PROGRESS AND NOT STABLE FOR RELEASE YET**
+**STILL WORK IN PROGRESS AND NOT STABLE FOR RELEASE YET**
 
 
 
