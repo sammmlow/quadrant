@@ -14,7 +14,7 @@
 
 :Project: QUADRANT
 :Github: https://github.com/sammmlow/quadrant
-:Documents: Work In Progress
+:Documents: https://quadrant.readthedocs.io/en/latest/
 :Version: 0.0 (Unreleased)
 
 |docs| |license|
