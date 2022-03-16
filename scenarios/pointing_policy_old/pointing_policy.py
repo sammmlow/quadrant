@@ -100,7 +100,7 @@ with open( deputy_path ) as deputy_elements:
 
 # Initialise reinforcement learning parameters for forward search.
 G     = 0.75 # Discount factor in Bellman update (float, < 1.0)
-cP    = 2.0  # Power charging urgency constant (float)
+λ    = 2.0  # Power charging urgency constant (float)
 cMu   = 5.0  # Soft max precision parameter for rewards (float)
 depth = 1    # Depth of forward search (integer)
 
@@ -250,7 +250,7 @@ def simulate_sun_pointing( dt, ct, sC, Kp, Ki, Kd, aBN, wBN,
 ###############################################################################
 
 # Define the transition matrix function for this scenario.
-def transition( n, P, cP ):
+def transition( n, P, λ ):
     ''' Generates a transition matrix for spacecraft state transitions, that
     depend on the current power levels (or an equivalent conserved constraint)
     in the chief spacecraft.
@@ -261,7 +261,7 @@ def transition( n, P, cP ):
         Number of deputy satellites.
     P : float
         Power level of the chief satellite (must be between 0 and 1)
-    cP : float
+    λ : float
         Power charging urgency constant. Higher values implies a lower
         chance of the spacecraft transiting into charging mode at urgently
         lower power levels.
@@ -274,7 +274,7 @@ def transition( n, P, cP ):
     
     '''
     
-    epsilon = ( 1.0 - P ) ** cP
+    epsilon = ( 1.0 - P ) ** λ
     transition_matrix = ( 1.0 - epsilon ) * np.eye( n+1 )
     transition_matrix[0 ,0] = 1.0
     transition_matrix[1:,0] = epsilon
@@ -284,7 +284,7 @@ def transition( n, P, cP ):
 ###############################################################################
 
 # Define the softmax rewards vector for this scenario.
-def reward( P, cP, mu, charge_duration, slew_times ):
+def reward( P, λ, mu, charge_duration, slew_times ):
     ''' Immediate rewards vector; dynamic rewards that depend on power levels
     and hallucinated slewing times for attitude control manoeuvres. Requires a
     list of attitude manoeuvre slew times, therefore, the agent must first
@@ -297,7 +297,7 @@ def reward( P, cP, mu, charge_duration, slew_times ):
         Number of deputy satellites.
     P : float
         Power level of the chief satellite (must be between 0 and 1)
-    cP : float
+    λ : float
         Power charging urgency constant. Higher values implies a lower
         chance of the spacecraft transiting into charging mode at urgently
         lower power levels.
@@ -318,7 +318,7 @@ def reward( P, cP, mu, charge_duration, slew_times ):
 
     '''
     
-    epsilon = ( 1.0 - max(0.0, P) ) ** cP
+    epsilon = ( 1.0 - max(0.0, P) ) ** λ
     total_time = charge_duration + sum( slew_times )
     slew_times = np.array( slew_times )
     Rp = epsilon / math.exp( mu * ( charge_duration / total_time ) )
@@ -629,10 +629,10 @@ if mode == modes[1]:
                     slew_times_array.append(ti)
             
             # Compute immediate reward.
-            R = reward( power, cP, cMu, charge_duration, slew_times_array )
+            R = reward( power, λ, cMu, charge_duration, slew_times_array )
             
             # Compute current state transition.
-            T = transition( len(sDs), power, cP )
+            T = transition( len(sDs), power, λ )
             
             # Do bellman update
             U = bellman_update( R, G, T, U )
@@ -875,10 +875,10 @@ if mode == modes[2]:
                     slew_times_array.append(ti)
             
             # Compute immediate reward.
-            R = reward( power, cP, cMu, charge_duration, slew_times_array )
+            R = reward( power, λ, cMu, charge_duration, slew_times_array )
             
             # Compute current state transition.
-            T = transition( len(sDs), power, cP )
+            T = transition( len(sDs), power, λ )
             
             # Do bellman update
             U = bellman_update( R, G, T, U )
@@ -1110,10 +1110,10 @@ if mode == modes[2]:
 #                 for action in path:
                 
 #                 # Compute immediate reward.
-#                 R = reward( power, cP, cMu, charge_duration, slew_times_array )
+#                 R = reward( power, λ, cMu, charge_duration, slew_times_array )
                 
 #                 # Compute current state transition.
-#                 T = transition( len(sDs), power, cP )
+#                 T = transition( len(sDs), power, λ )
                 
 #                 # Do bellman update
 #                 U = bellman_update( R, G, T, U )
