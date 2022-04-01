@@ -7,8 +7,7 @@ Created on Tue Nov 23 23:25:33 2021
 import numpy as np
 from source import attitudes
 
-def control_QTR( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
-                 inertia, prevTorque, intgErr ):
+def control( sC, Kp, Ki, Kd, dcmRN, ohmRN ):
 
     # ------------------------------------------------------------------------
     # MEMO ON SIMULATING SPACECRAFT ATTITUDES AND EXECUTION OF CONTROL LAW
@@ -26,7 +25,7 @@ def control_QTR( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
     # --> I  ... ... Spacecraft 3x3 inertia matrix
     # --> qBN ... ... Attitude error in inertial-to-body frame [BN]
     # --> wBN ... ... Angular velocity vector (rad/s) inertial-to-reference
-    # --> wRN ... ... Angular velocity vector (rad/s) inertial-to-reference
+    # --> ohmRN ... ... Angular velocity vector (rad/s) inertial-to-reference
     # --> dcmRN ... ... Direction cosine matrix inertial-to-reference [RN]
     # --> intgErr   ... Accumulated qBR error integrated over time
     # --> torq  ... Control torque vector from previous loop (Nm)
@@ -49,7 +48,7 @@ def control_QTR( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
     # are to be updated in the feedback. This means qDotBR is required, which
     # can be computed using qBR and wBR using the differential kinematic
     # equation at that instant. wBR can be obtained via vector addition (as
-    # seen in the B-frame) of wBN and -wRN. Target wRN can be computed in the 
+    # seen in the B-frame) of wBN and -ohmRN. Target ohmRN can be computed in the 
     # "targeting.py" library, before calling this control function. wBN must
     # be updated in each loop, and thus requires the
     # computation of wDotBN for the update. wDotBN can be computed by
@@ -57,7 +56,7 @@ def control_QTR( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
     # U, into Euler's rotational equation of motion. If omegaDot_RN is needed, 
     # the numerical first order gradient will suffice as an estimate.
     #
-    # Take note that wRN and omegaDot_RN must be seen in the B-frame!
+    # Take note that ohmRN and omegaDot_RN must be seen in the B-frame!
     #
     # Keep in mind also that if we are working with MRPs, we should switch to
     # the appropriate shadow and non-shadow set values by checking if the MRP
@@ -80,55 +79,47 @@ def control_QTR( t, dt, ct, Kp, Ki, Kd, qBN, wBN, wRN, dcmRN,
     # in order to perform vector operations on them, you must call the
     # attribute `q` to draw out the quarternion as a NumPy array.
     
-    if np.dot( qBN.qtr, qBN.qtr ) != 1.0:
-        qBN.qtr = qBN.qtr / np.linalg.norm( qBN.qtr )
+    # If spacecraft attitude coordinates are in quaternions...
+    if sC.attBN.strID() == 'QTR' and sC.attBR.strID() == 'QTR':
         
-    # Initialise the reference-to-body and reference-to-inertial attitudes.
-    dcmBN = qBN.dcm
-    dcmBR = dcmBN @ dcmRN.T
-    qBR = attitudes.QTR( dcm = dcmBR )
+        # Check if BN quaternion describes the short or long rotation.
+        if sC.attBN[0] < 0.0:
+            sC.attBN.qtr = -1 * sC.attBN.qtr
+            
+        # Re-normalise BN quaternions if norm is not 1.
+        if np.dot( sC.attBN.qtr, sC.attBN.qtr ) != 1.0:
+            sC.attBN.normalise()
+        
+        # Initialise reference-to-body and reference-to-inertial attitudes.
+        dcmBN = sC.attBN.dcm
+        dcmBR = dcmBN @ dcmRN.T
+        sC.attBR = attitudes.QTR( dcm = dcmBR )
+        
+        # Check if BR quaternion describes the short or long rotation.
+        if sC.attBR[0] < 0.0:
+            sC.attBR.qtr = -1 * sC.attBR.qtr
+            
+        # Re-normalise BR quaternions if norm is not 1.
+        if np.dot( sC.attBR.qtr, sC.attBR.qtr ) != 1.0:
+            sC.attBR.normalise()
+        
+        # The original ohmRN is seen in the N-frame. Convert to B-frame.
+        ohmRN = dcmBN @ ohmRN
+        
+        # Update angular velocity of body-to-reference (in body frame)
+        sC.ohmBR = sC.ohmBN - ohmRN
+        
+        # Compute the feedback control torque and apply it on spacecraft.
+        # Note that this only changes the attribute of the torque on the
+        # spacecraft, to meaningfully propagate it, the user should run
+        # the "propagate_attitude_stepwise( dt, torque )" method of the SC.
+        torque =  ( -1 * Kp * sC.attBR.qtr[1:] )
+        torque -= ( Kd * sC.ohmBR )
+        torque -= ( Ki * Kp * sC.attIntgErr )
+        sC.torque = torque
+        return sC
     
-    # Second check: Ensure that the quarternions always have norm = 1.
-    if np.dot( qBR.qtr, qBR.qtr ) != 1.0:
-        qBR.qtr = qBR.qtr / np.linalg.norm( qBR.qtr )
-        
-    # Check if the current quarternion describes the short or long rotation.
-    if qBR[0] < 0.0:
-        qBR.qtr = -1 * qBR.qtr
-        
-    # The original wRN is seen in the N-frame. Convert to B-frame.
-    wRN = dcmBN @ wRN
-    
-    # Update omega of body-to-reference (B-frame)
-    wBR = wBN - wRN
-    
-    # Trigger the control response at the control time step `ct`.
-    if t % ct  == 0.0:
-        torque =  ( -1 * Kp * qBR.qtr[1:] )
-        torque -= ( Kd * wBR )
-        torque -= ( Ki * Kp * intgErr[1:] )
-        
-    # Else, return the control torque from the previous loop.
     else:
-        torque = prevTorque
+        return False
         
-    # Solve for wDotBN using Euler's rotational equations of motion.
-    inertia_inverse = np.linalg.inv( inertia )
-    gyroscopic = np.cross( wBN, inertia @ wBN )
-    wDotBN = inertia_inverse @ ( torque - gyroscopic )
     
-    # Check if the current quarternion describes the short or long rotation.
-    if qBN[0] < 0.0:
-        qBN.qtr = -1 * qBN.qtr
-        
-    # Use the quarternion rate method inherent in the quarternion class.
-    qDotBN = qBN.get_qtrRate( wBN )
-    
-    # Actual numerical integration via first order derivative update.
-    qBN.qtr = qBN.qtr + ( dt * qDotBN )
-    intgErr = intgErr + ( qBR.qtr * dt )
-    
-    # Return the attitude and angular velocity errors with respect to the
-    # reference target, with respect to the inertial frame, the integration
-    # or accumulated attitude error, and the controller torque.
-    return qBR, wBR, qBN, wBN, torque, intgErr

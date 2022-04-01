@@ -45,10 +45,11 @@ class QTR:
         elif qtr is not None:
             if len(qtr) == 4:
                 self.qtr = np.array(qtr)
-                self._normalise()
+                self.normalise()
                 self.dcm = self._qtr2dcm( self.qtr )
             else:
                 print("Error! Quaternion not of length 4!")
+                raise ValueError("Quaternion not of length 4!")
                 self.qtr = np.array([1.0, 0.0, 0.0, 0.0])
                 self.dcm = np.eye(3)
         
@@ -57,7 +58,7 @@ class QTR:
         elif qtr is None and dcm is not None:
             if np.shape(dcm)[0] == 3 and np.shape(dcm)[1] == 3:
                 self.qtr = self._dcm2qtr( dcm )
-                self._normalise()
+                self.normalise()
                 self.dcm = dcm
             else:
                 print("Error! QTR not specified and DCM is not 3x3!")
@@ -195,7 +196,7 @@ class QTR:
         return self.dcm
     
     # Method for ensuring the correct normalisation of a quaternion.
-    def _normalise(self):
+    def normalise(self):
         self.qtr = self.qtr / np.linalg.norm(self.qtr)
     
     # Method for computing the differential equation in quaternion vector
@@ -269,6 +270,7 @@ class CRP:
                 self.dcm = self._crp2dcm( self.crp )
             else:
                 print("Error! Classical Rodrigues Parameter not of length 3!")
+                raise ValueError("CRP not of length 3!")
                 self.crp = np.array([0.0, 0.0, 0.0])
                 self.dcm = np.eye(3)
         
@@ -438,7 +440,8 @@ class MRP:
                 self.mrp = np.array(mrp)
                 self.dcm = self._mrp2dcm( self.mrp )
             else:
-                print("Error! Classical Rodrigues Parameter not of length 3!")
+                print("Error! Modified Rodrigues Parameter not of length 3!")
+                raise ValueError("MRP not of length 3!")
                 self.mrp = np.array([0.0, 0.0, 0.0])
                 self.dcm = np.eye(3)
         

@@ -101,7 +101,7 @@ with open( deputy_path ) as deputy_elements:
 # Initialise reinforcement learning parameters for forward search.
 G     = 0.75 # Discount factor in Bellman update (float, < 1.0)
 λ    = 2.0  # Power charging urgency constant (float)
-cMu   = 5.0  # Soft max precision parameter for rewards (float)
+μ   = 5.0  # Soft max precision parameter for rewards (float)
 depth = 1    # Depth of forward search (integer)
 
 
@@ -629,7 +629,7 @@ if mode == modes[1]:
                     slew_times_array.append(ti)
             
             # Compute immediate reward.
-            R = reward( power, λ, cMu, charge_duration, slew_times_array )
+            R = reward( power, λ, μ, charge_duration, slew_times_array )
             
             # Compute current state transition.
             T = transition( len(sDs), power, λ )
@@ -875,7 +875,7 @@ if mode == modes[2]:
                     slew_times_array.append(ti)
             
             # Compute immediate reward.
-            R = reward( power, λ, cMu, charge_duration, slew_times_array )
+            R = reward( power, λ, μ, charge_duration, slew_times_array )
             
             # Compute current state transition.
             T = transition( len(sDs), power, λ )
@@ -1110,7 +1110,7 @@ if mode == modes[2]:
 #                 for action in path:
                 
 #                 # Compute immediate reward.
-#                 R = reward( power, λ, cMu, charge_duration, slew_times_array )
+#                 R = reward( power, λ, μ, charge_duration, slew_times_array )
                 
 #                 # Compute current state transition.
 #                 T = transition( len(sDs), power, λ )

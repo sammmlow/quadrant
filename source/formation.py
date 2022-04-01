@@ -76,5 +76,5 @@ class Formation():
         pC  = np.array([ self.sC.px, self.sC.py, self.sC.pz ])
         pD  = np.array([ self.sD.px, self.sD.py, self.sD.pz ])
         self.get_hill_dcm() # Updates self.hill_dcm
-        self.RTN = self.hill_dcm @ ( pC - pD )
+        self.RTN = self.hill_dcm @ ( pD - pC )
     

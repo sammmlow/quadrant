@@ -72,9 +72,11 @@ class Spacecraft():
     '''
     
     # Set default parameters upon initialization, in this order.
-    def __init__(self, elements=None, states=None, epoch=None, forces=None,
-                 attBN=None, ohmBN=None, attBR=None, ohmBR=None,
-                 name=None, mass=None, area=None, Cd=None, GM=None):
+    def __init__( self, elements=None, states=None, epoch=None, forces=None, 
+                  torque=None, attBN=None, ohmBN=None, name=None, mass=None,
+                  inertia=None, area=None, Cd=None, GM=None ):
+                 
+                 
         
         # State vector units are:
         # elements: [ km, none, deg, deg, deg, deg ]
@@ -83,15 +85,18 @@ class Spacecraft():
         # Initialize non-state parameters.
         self.epoch = epoch
         self.forces = forces
+        self.torque = torque
         self.attBN = attBN
         self.ohmBN = ohmBN
-        self.attBR = attBR
-        self.ohmBR = ohmBR
+        self.attBR = attBN
+        self.ohmBR = ohmBN
         self.name = name
         self.mass = mass
+        self.inertia = inertia
         self.area = area
         self.Cd = Cd
         self.GM = GM
+        self.attIntgErr = None
         
         # If the elements are defined, then initialize both elements and the
         # cartesian states from `elements`. Else, initialize it via `states`.
@@ -105,10 +110,6 @@ class Spacecraft():
             self._resetstates()
             self.elements = elements
             self.states = states
-            
-        # Initialise the internal history of ephemeris and attitude states.
-        self.__dict__['history_ephemeris']  = {}
-        self.__dict__['history_attitudes']  = {}
     
     # Reset spacecraft state attributes.
     def _resetstates(self):
@@ -163,7 +164,18 @@ class Spacecraft():
                     print('Error in force model, printing:')
                     print(value)
                     raise TypeError("Force models must be in a dictionary!")
-                
+        
+        # __setattr__ for 'torque' attribute. Dictionary of forces toggled.
+        if key == 'torque':
+            if value is None:
+                self.__dict__[key] = np.array([0.0,0.0,0.0])
+            else:
+                if len(value) == 3:
+                    self.__dict__[key] = np.array(value)
+                else:
+                    self.__dict__[key] = np.array([0.0,0.0,0.0])
+                    raise ValueError("Torque length not 3!")
+        
         # __setattr__ for 'attBN' attribute. Body to inertial attitude.
         if key == 'attBN':
             if value is None:
@@ -187,7 +199,7 @@ class Spacecraft():
                 self.__dict__[key] = np.zeros(3)
             else:
                 if len(value) == 3:
-                    self.__dict__[key] = value
+                    self.__dict__[key] = np.array( value )
                 else:
                     raise ValueError("Omega BN vector length incorrect!")
         
@@ -214,9 +226,20 @@ class Spacecraft():
                 self.__dict__[key] = np.zeros(3)
             else:
                 if len(value) == 3:
-                    self.__dict__[key] = value
+                    self.__dict__[key] = np.array( value )
                 else:
                     raise ValueError("Omega BR vector length incorrect!")
+        
+        # __setattr__ for 'attIntgErr' attribute.
+        if key == 'attIntgErr':
+            if value is None:
+                self.__dict__[key] = np.zeros(3)
+            else:
+                if len(value) == 3:
+                    self.__dict__[key] = value
+                else:
+                    self.__dict__[key] = np.zeros(3)
+                    raise ValueError("Attitude integral error not length 3!")
         
         # __setattr__ for 'name' attribute.
         if key == 'name':
@@ -230,7 +253,19 @@ class Spacecraft():
             if value is None:
                 self.__dict__[key] = 100.0
             else:
-                self.__dict__[key] = value
+                self.__dict__[key] = float(value)
+        
+        # __setattr__ for 'mass' attribute.
+        if key == 'inertia':
+            if value is None:
+                self.__dict__[key] = np.diag([10,10,10])
+            else:
+                if np.shape(value) == (3,3):
+                    self.__dict__[key] = value
+                    if sum(sum(value)) != np.trace(value):
+                        print("Warning, inertia tensor is not diagonal!")
+                else:
+                    raise ValueError("Inertia tensor must be 3x3 diagonal!")
         
         # __setattr__ for 'area' attribute.
         if key == 'area':
@@ -396,16 +431,11 @@ class Spacecraft():
             self.__dict__[key] = value
             self.__dict__['n'] = 2 * PI / value
             self.__dict__['a'] = (self.GM * (value / (2*PI))**2 )**(1/3)
-        
-        # __setattr__ for 'history_ephemeris' attribute. Read-only by user.
-        if key == '_history_ephemeris':
-            raise AttributeError("Ephemeris history is read-only!")
-        
-        # __setattr__ for 'history_attitudes' attribute. Read-only by user.
-        if key == '_history_attitudes':
-            raise AttributeError("Attitudes history is read-only!")
-            
+    
     def __repr__(self):
+        return 'Spacecraft ' + str(self.name)
+    
+    def status(self):
         
         # Print out basic spacecraft information.
         out  = 'BASIC INFORMATION \n'
@@ -478,6 +508,7 @@ class Spacecraft():
                 force_str += ' '
             force_str += ': ' + str(self.forces[key]) + ' \n'
             out += force_str
+        print(out)
         return out
     
     def _update_states(self):
@@ -601,38 +632,65 @@ class Spacecraft():
     
     # Compute the Hill-Frame transformation matrix.
     def get_hill_frame(self):
-        pC, vC = [self.px, self.py, self.pz], [self.vx, self.vy, self.vz]
+        pC = [self.px, self.py, self.pz]
+        vC = [self.vx, self.vy, self.vz]
         hC = np.cross(pC, vC) # Angular momentum vector                      
         r_hat = pC / np.linalg.norm(pC) # Local X-axis
         h_hat = hC / np.linalg.norm(hC) # Local Z-axis
         y_hat = np.cross(h_hat, r_hat)  # Local Y-axis
         return np.array([r_hat, y_hat, h_hat])
     
+    # Propagate the attitude of the vehicle given a reference and torque.
+    # Note that torques and angular velocities must be in the body frame.
+    def propagate_attitude(self, dt, torque):
+        
+        # Get the angular acceleration from Euler's EOM.
+        inertia_inverse = np.linalg.inv( self.inertia )
+        gyroscopic = np.cross( self.ohmBN, self.inertia @ self.ohmBN )
+        wDotBN = inertia_inverse @ ( torque - gyroscopic )
+        
+        # Check if the coordinate type is a quaternion.
+        if self.attBN.strID() == 'QTR' and self.attBR.strID() == 'QTR':
+            if self.attBN[0] < 0.0:
+                self.attBN.qtr = -1 * self.attBN.qtr # Fix long/short rotation
+            qDotBN = self.attBN.get_qtrRate( self.ohmBN )
+            self.ohmBN = self.ohmBN + ( dt * wDotBN )
+            self.attBN.qtr = self.attBN.qtr + ( dt * qDotBN )
+            self.attIntgErr = self.attIntgErr + ( self.attBR.qtr[1:] * dt )
+        
+        # # Check if the coordinate type is an MRP
+        # elif self.attBN.strID() == 'MRP' and self.attBR.strID() == 'MRP':
+        #     if self.attBN[0] < 0.0:
+        #         self.attBN.qtr = -1 * self.attBN.qtr # Fix long/short rotation
+        #     qDotBN = self.attBN.get_qtrRate( self.ohmBN )
+        #     self.ohmBN = self.ohmBN + ( dt * wDotBN )
+        #     self.attBN.qtr = self.attBN.qtr + ( dt * qDotBN )
+        #     self.attIntgErr = self.attIntgErr + ( self.attBR.qtr[1:] * dt )
+        else:
+            
+            # NEED TO IMPLEMENT AN ATTITUDE PROPAGATION FOR CRPs AND MRPs!
+            
+            print('No quaternion detected in attitude propagation!')
+            raise TypeError('MRP and CRP not implemented yet! To be fixed.')
+    
     # Two-body Keplerian propagator.
-    def propagate_twobody(self, t, step):
-        time_left = t
-        while time_left > step:
-            self.history_ephemeris[self.epoch] = self.states+self.elements
-            self.M = R2D * (self.M + self.n * step)
-            self.epoch += datetime.timedelta( seconds = step )
-            time_left -= step
-        self.history_ephemeris[self.epoch] = self.states+self.elements
-        self.M = R2D * (self.M + self.n * time_left)
-        self.epoch += datetime.timedelta( seconds = time_left )
+    def propagate_orbit(self, dt):
+        self.M = R2D * (self.M + self.n * dt)
+        self.epoch += datetime.timedelta( seconds = dt )
         
         
-    # Numerical propagator using RK4.
-    def propagate_perturbed(self, t, step, integrator='RK4'):
-        time_left = t
-        if integrator == 'RK4':
-            while time_left > step:
-                self.history_ephemeris[self.epoch] = self.states+self.elements
-                integrate.RK4(self, step)
-                self.epoch += datetime.timedelta( seconds = step )
-                time_left -= step
-            self.history_ephemeris[self.epoch] = self.states+self.elements
-            integrate.RK4(self, time_left)
-            self.epoch += datetime.timedelta( seconds = time_left )
+    # # Numerical propagator using RK4.
+    # def propagate_perturbed(self, t, step, integrator='RK4'):
+    #     time_left = t
+    #     if integrator == 'RK4':
+    #         while time_left > step:
+    #             self.history_ephemeris[self.epoch] = self.states+self.elements
+    #             integrate.RK4(self, step)
+    #             self.epoch += datetime.timedelta( seconds = step )
+    #             time_left -= step
+    #         self.history_ephemeris[self.epoch] = self.states+self.elements
+    #         integrate.RK4(self, time_left)
+    #         self.epoch += datetime.timedelta( seconds = time_left )
     
     def plot_orbit(self):
         return None

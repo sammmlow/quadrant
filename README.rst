@@ -19,7 +19,7 @@
 
 |docs| |license|
 
-:Author: Samuel Y. W. Low λλλλ
+:Author: Samuel Y. W. Low 
 
 |linkedin| |orcid|
 

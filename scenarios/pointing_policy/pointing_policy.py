@@ -9,8 +9,8 @@
 ##     \_  /|_____| /--\ |____/|_|\_\ /--\ |_\___| |_|                       ##
 ##       \/                                               v 0.0              ##
 ##                                                                           ##
-##    Project: Optimal Pointing Sequences in Spacecraft Formation Flying     ##
-##             using Online Planning with Resource Constraints               ##
+##    Scenario: Optimal Pointing Sequences in Spacecraft Formation Flying    ##
+##    using Online Planning with Resource Constraints                        ##
 ##                                                                           ##
 ##    Written by Samuel Y. W. Low.                                           ##
 ##    Advised by Professor Mykel J. Kochenderfer                             ##
@@ -20,16 +20,21 @@
 ###############################################################################
 ###############################################################################
 
-# Import libraries.
+# Import global libraries.
 import numpy as np
 import matplotlib.pyplot as plt
 import os, csv, math, copy, itertools
-from source import spacecraft, attitudes, targeting, feedback
 
 # Move the current directory up until the Quadrant root.
 while os.getcwd().split("\\")[-1] != "quadrant":
     os.chdir("..")
-    
+
+# Import source libraries.
+from source import spacecraft, attitudes, targeting, feedback
+
+# Set the policy: 'random', 'greedy', 'lookahead', 'forward', 'mcts'
+mode = 'random'
+
 # The chief SC is the variable 'sC'. The list of deputies is sDs.
 sDs = []
 
@@ -49,72 +54,99 @@ with open( scenario_path + '\\ephemeris.csv' ) as ephemeris:
                 sD = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
                 sDs.append( sD )
 
-###############################################################################
-###############################################################################
-###                                                                         ###
-###        Initialise all reinforcement-learning related parameters.        ###
-###                                                                         ###
-###############################################################################
-###############################################################################
+# Initialise dynamic and control time step.
+dt, ct = 1.0, 1.0
 
-# State space: [sP, sD1, sD2, ... sDN ], for N number of deputy spacecraft.
-# sP refers to the state of charging (sun-pointing mode) and for some i-th
-# deputy spacecraft, sDi refers to performing links with that i-th deputy.
+# Initialise reinforcement learning hyper-parameters.
+γ = 0.75 # Gamma: Discount factor in Bellman update ( < 1.0)
+λ = 2.0  # Lambda: Power charging urgency constant (float)
+μ = 5.0  # Mu: Soft max precision parameter for rewards (float)
 
-# Initialise reinforcement learning parameters for forward search.
-G     = 0.75 # Discount factor in Bellman update (float, < 1.0)
-cP    = 2.0  # Power charging urgency constant (float)
-cMu   = 5.0  # Soft max precision parameter for rewards (float)
-depth = 1    # Depth of forward search (integer)
+# Initialise the resource parameters.
+P        = 1.0   # Power level, must be between 0 and 1
+P_drain  = 0.001 # Power drain rate, between 0 and 1
+P_charge = 0.002 # Power charge rate, between 0 and 1
 
+# Initialise attitude control gains
+Kp, Ki, Kd = 0.016, 0.0, 0.4 # Initial (Lyapunov) control gains
 
-
-###############################################################################
-###############################################################################
-###                                                                         ###
-###        Initialise all dynamics-related constants and parameters.        ###
-###                                                                         ###
-###############################################################################
-###############################################################################
-
-# Initialise modes.
-modes = ['random', 'greedy', 'policy']
-
-# Select the mode.
-mode = 'random' # Randomly picks a satellite
-mode = 'greedy' # Picks only the immediate reward
-mode = 'policy' # Picks the best value, updates utility via Bellman Equation
-
-# Initialise timing parameters.
-dt = 1.0                              # Time step in dynamics loop (s)
-ct = 1.0                              # Time step in controls loop (s)
-
-# Initialise all constants.
-pi  = math.pi                         # 3.141592653589793
-GM  = 398600.4418                     # G * Earth Mass (km**3/s**2)
-RE  = 6378.140                        # Earth equatorial radius (km)
-D2R = math.pi / 180.0                 # Degree to radian convertor
-
-# Initialise the power parameters.
-power   = 1.0                         # Power level, must be between 0 and 1
-pdrain  = 0.001                       # Power drain rate, between 0 and 1
-pcharge = 0.002                       # Power charge rate, between 0 and 1
-
-# Initialise attitude control parameters (quarternions will be used here).
-torq       = np.zeros(3)              # Initial control torque.
-dcmRN      = np.eye(3)                # Initial reference-to-inertial DCM
-intgErr    = np.zeros(4)              # Initial attitude integration error.
-inertia    = np.diag([10,10,10])      # Spacecraft principal inertia tensor.
-Kp, Ki, Kd = 0.016, 0.0, 0.4          # Initial (Lyapunov) control gains
-
-# Initialise attitudes and rates.
-aBN = attitudes.QTR( qtr = [1,0,0,0] )# Chief body-inertial attitude.
-wBN = np.array([0.0, 0.0, 0.0])       # Chief body-inertial angular velocity.
+# Initialise the action space.
+actions = ['sun'] + sDs
 
 # Initialise arrays for plotting the dynamics.
-aBR_array = np.empty((0,4), float)    # Quarternions body-to-reference 
-aBN_array = np.empty((0,4), float)    # Quarternions body-to-inertial 
-wBR_array = np.empty((0,4), float)    # Angular velocities, body-to-reference
-wBN_array = np.empty((0,4), float)    # Angular velocities, body-to-inertial
-trq_array = np.empty((0,4), float)    # Control torque applied, inertial frame
+aBR_array = np.empty((0,4), float) # Quarternions body-to-reference 
+aBN_array = np.empty((0,4), float) # Quarternions body-to-inertial 
+wBR_array = np.empty((0,4), float) # Angular velocities, body-to-reference
+wBN_array = np.empty((0,4), float) # Angular velocities, body-to-inertial
+trq_array = np.empty((0,4), float) # Control torque applied, inertial frame
+
+# Define the transition matrix function for this scenario.
+def transition( n, P, λ ):
+    # n = number of deputy spacecraft in action space.
+    # P = power level of chief spacecraft, between 0 and 1.
+    # λ = power charging priority constant (hyper-parameter)
+    ε = (1-P)**λ
+    transition_matrix = (1-ε) * np.eye(n+1)
+    transition_matrix[0 ,0] = 1.0
+    transition_matrix[1:,0] = ε
+    return transition_matrix
+
+# Define the soft max rewards vector for this scenario.
+def reward( P, λ, μ, C, Δ ):
+    # P = power level of chief spacecraft, between 0 and 1.
+    # λ = power charging priority hyper-parameter.
+    # μ = soft-max hyper-parameter to tune reward hardness.
+    # C = expected charging duration of chief spacecraft.
+    # Δ = array of all expected slew times to each deputy.
+    # δ = individual expected slew time to a particular deputy.
+    # t = total duration of all actions (charging + slew).
+    ε = ( 1 - max(0,P) )**λ
+    t = C + sum( Δ )
+    Δ = np.array( Δ )
+    Rp = ε / math.exp(μ*C/t)
+    R = [Rp] # Array of rewards
+    for δ in Δ:
+        if δ == 0.0:
+            R.append(0.0)
+        else:
+            Rd = (1-ε) / math.exp(μ*δ/t)
+            R.append(Rd)
+    return np.array(R)
+
+# Define a function to perform a Bellman update.
+def bellman( R, γ, T, U1 ):
+    # R  = vector of rewards for each action.
+    # γ  = discount factor in Bellman equation.
+    # T  = transition matrix.
+    # U1 = utility from previous iteration.
+    U2 = R + γ * ( T @ U1 )
+    return U2
+
+# time constant 2I/P where P is angvel gain (D)
+
+# def forward_search(ai,d):
+#     if d == 0:
+#         return (None,0)
+#     Abest, Ubest = None, -10000
+    
+#     # For all possible actions
+#     for a in sDs:
+        
+#         # Get the immediate reward of the current state-action.
+#         reward = reward( P, λ, μ, C, Δ )
+        
+#         # Recursive depth-first search, returning best action-value pair.
+#         Ap, Up = forward_search(a,d-1)
+        
+#         # Bellman update of utility from child node after exiting recursion.
+#         U = R + bellman( R, γ, T, Up )
+        
+#         # Pick the highest action-value pair
+#         if U > Ubest:
+#             Abest, Ubest = a, U
+    
+#     print('Returning best action-value',Abest,Ubest,'at depth',d,'\n')
+#     return (Abest, Ubest)
+
+
 
