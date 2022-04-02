@@ -34,11 +34,12 @@ D2R = PI/180.0 # Degrees to radians
 
 # Random names for spacecraft from (thanks FTL)
 names = ['Arries', 'Elnubnub', 'Ken', 'Randy', 'Kirkner', 'Lombard', 'Feras',
-         'Yeoz', 'Ryan', 'GM Faux', 'O Williams', 'Yevon Si', 'Maloney',
-         'Will', 'Maxwell', 'Thomas', 'Bloch', 'Rynhart', 'AJ Hager',
+         'Yeoz', 'Ryan', 'GM Faux', 'O Williams', 'Yevon Si', 'Maloney',  
+         'Maxwell', 'Thomas', 'Bloch', 'Rynhart', 'AJ Hager', 'Tik', 'Will',
          'Stephen', 'Eckman', 'Jack', 'Shirai', 'Julian', 'Rafn', 'Markand',
          'Nelis', 'Chris', 'Malott', 'Davion', 'Caldwell', 'Kusy', 'Lagardi',
-         'Vincent', 'Kevin', 'Fish', 'Turing', 'Stelly', 'Teldarin']
+         'Vincent', 'Kevin', 'Fish', 'Turing', 'Stelly', 'Teldarin',
+         'Fanfan','Geissberger']
 
 class Spacecraft():
     '''
