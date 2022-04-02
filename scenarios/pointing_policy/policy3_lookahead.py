@@ -22,8 +22,9 @@
 
 # Import global libraries.
 import numpy as np
+import os, csv, math
+from copy import deepcopy
 import matplotlib.pyplot as plt
-import os, csv, math, copy, itertools
 
 # Move the current directory up until the Quadrant root.
 while os.getcwd().split("\\")[-1] != "quadrant":
@@ -32,57 +33,48 @@ while os.getcwd().split("\\")[-1] != "quadrant":
 # Import source libraries.
 from source import spacecraft, attitudes, targeting, feedback
 
-# Set the policy: 'random', 'greedy', 'lookahead', 'forward', 'mcts'
-mode = 'random'
+# # The chief SC is the variable 'sC'. The list of deputies is sDs.
+# sDs = []
 
-# The chief SC is the variable 'sC'. The list of deputies is sDs.
-sDs = []
+# # Import the ephemeris of all spacecraft from the CSV file.
+# name_index = 0
+# scenario_path = os.getcwd() + '\\scenarios\\pointing_policy'
+# with open( scenario_path + '\\ephemeris.csv' ) as ephemeris:
+#     ephemeris_csv = csv.reader( ephemeris, delimiter=',' )
+#     for row in ephemeris_csv:
+#         if 'Header' in row:
+#             continue
+#         else:
+#             a,e,i = float(row[1]), float(row[2]), float(row[3])
+#             w,R,M = float(row[4]), float(row[5]), float(row[6])
+#             if 'Chief' in row[0]: # Grab the chief SC parameters.
+#                 sC = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
+#                 sC.name = spacecraft.names[ name_index ]
+#             if 'Deputy' in row[0]: # Grab the deputy SC parameters.
+#                 sD = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
+#                 #sD.name = spacecraft.names[ name_index ]
+#                 sD.name = str(name_index+1)
+#                 sDs.append( sD )
+#             name_index += 1
 
-# Import the ephemeris of all spacecraft from the CSV file.
-name_index = 0
-scenario_path = os.getcwd() + '\\scenarios\\pointing_policy'
-with open( scenario_path + '\\ephemeris.csv' ) as ephemeris:
-    ephemeris_csv = csv.reader( ephemeris, delimiter=',' )
-    for row in ephemeris_csv:
-        if 'Header' in row:
-            continue
-        else:
-            a,e,i = float(row[1]), float(row[2]), float(row[3])
-            w,R,M = float(row[4]), float(row[5]), float(row[6])
-            if 'Chief' in row[0]: # Grab the chief SC parameters.
-                sC = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
-                sC.name = spacecraft.names[ name_index ]
-            if 'Deputy' in row[0]: # Grab the deputy SC parameters.
-                sD = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
-                sD.name = spacecraft.names[ name_index ]
-                sDs.append( sD )
-            name_index += 1
+# Initialise the number of Monte Carlo trials.
+trials = 10
 
 # Initialise dynamic and control time step.
 dt, ct = 1.0, 1.0
 
 # Initialise reinforcement learning hyper-parameters.
-γ = 0.85  # Gamma: Discount factor in Bellman update ( < 1.0)
-λ = 2.0   # Lambda: Power charging urgency constant (float)
-μ = 0.001 # Mu: Soft max precision parameter for rewards (float)
+γ = 0.75       # Gamma: Discount factor in Bellman update ( < 1.0)
+λ = 2.0        # Lambda: Power charging urgency constant (float)
+μ = 0.00017783 # Mu: Soft max precision parameter for rewards (float)
 
 # Initialise the resource parameters.
 P        = 1.0    # Power level, must be between 0 and 1
-P_drain  = 0.0001 # Power drain rate per second, between 0 and 1
+P_drain  = 0.0002 # Power drain rate per second, between 0 and 1
 P_charge = 0.001  # Power charge rate per second, between 0 and 1
 
 # Initialise attitude control gains
 Kp, Ki, Kd = 0.016, 0.0, 0.4 # Initial (Lyapunov) control gains
-
-# Initialise the action space.
-actions = ['Sun Pointing'] + sDs
-
-# Initialise arrays for plotting the dynamics.
-aBR_array = np.empty((0,4), float) # Quarternions body-to-reference 
-aBN_array = np.empty((0,4), float) # Quarternions body-to-inertial 
-wBR_array = np.empty((0,4), float) # Body angular velocities to reference
-wBN_array = np.empty((0,4), float) # Body angular velocities to inertial
-trq_array = np.empty((0,4), float) # Control torque applied in body frame
 
 
 ###############################################################################
@@ -114,11 +106,7 @@ def reward_deputy( P, λ, μ, δ ):
 
 # Define the plotting of rewards.
 def plot_rewards():
-    
-    # Close all plots
     plt.close('all')
-    
-    # Plot contour plots of the rewards for resource vs mission.
     p_axis = np.arange( 0.02, 1.0, 0.01 )
     t_axis = np.arange( 0.0, 1500.0, 10.0 )
     p_grid, t_grid = np.meshgrid( p_axis, t_axis )
@@ -161,7 +149,8 @@ def transition( Sf, Si, P, λ ):
         return 1-α
     else:
         return 1.0
-    
+
+
 # Define the transition matrix used in value iteration.
 def transition_matrix( P, λ, n ):
     # P  = power level of chief spacecraft, between 0 and 1.
@@ -171,7 +160,7 @@ def transition_matrix( P, λ, n ):
         α = 1.0
     else:
         α = (1-P)**λ
-    transition_matrix = (1-α) * np.eye(n+1)
+    transition_matrix = (1-α) * np.eye(n)
     transition_matrix[0 ,0] = 1.0
     transition_matrix[1:,0] = α
     return transition_matrix
@@ -188,11 +177,9 @@ def bellman( Sf, Si, P, λ, R, γ, U1 ):
     return U2
 
 
-# Define a function hallucinating slew duration to a deputy at 10X time step.
-# This function will also update the orbits of all deputies in the simulation.
+# Define a function hallucinating slew duration to a deputy. This function 
+# will also propagate orbits of all deputies in the simulation.
 def point_deputy( dt, P, sCi, sDi, sDs ):
-    
-    # Begin deputy pointing
     δ = 0.0
     while True:
         dcmRN, ohmRN = targeting.reference_deputy( dt, sCi, sDi )
@@ -205,17 +192,15 @@ def point_deputy( dt, P, sCi, sDi, sDs ):
         if sum( np.abs( sCi.attBR[1:] ) ) < 0.001:
             if abs( sCi.attBR[0] ) > 0.999:
                 break # Break loop once attitude converges to 0.1% error.
-        
     P -= δ * P_drain
     return P, δ # Return power level and duration.
 
 
-# Define a function hallucinating slew and charge duration to the sun.
+# Define a function hallucinating slew and charge duration to the sun. This 
+# function will also propagate orbits of all deputies in the simulation.
 def point_sun( dt, P, sCi, sDs ):
-    
-    # Begin pointing to the sun (battery is still discharging)
     δ = 0.0
-    while True:
+    while True: # Attitude maneuver to the sun
         dcmRN, ohmRN = targeting.reference_sun()
         sCi = feedback.control( sCi, Kp, Ki, Kd, dcmRN, ohmRN )
         sCi.propagate_orbit( dt )
@@ -227,9 +212,7 @@ def point_sun( dt, P, sCi, sDs ):
         if sum( np.abs( sCi.attBR[1:] ) ) < 0.001:
             if abs( sCi.attBR[0] ) > 0.999:
                 break # Break loop once attitude converges to 0.1% error.
-    
-    # Beging charging battery
-    while P < 1.0:
+    while P < 1.0: # Begin charging process
         dcmRN, ohmRN = targeting.reference_sun()
         sCi = feedback.control( sCi, Kp, Ki, Kd, dcmRN, ohmRN )
         sCi.propagate_orbit( dt )
@@ -238,7 +221,6 @@ def point_sun( dt, P, sCi, sDs ):
             sDii.propagate_orbit( dt ) # All spacecraft must move!
         δ += dt
         P += dt * P_charge
-        
     return 1.0, δ # Return power level and duration.
 
 
@@ -246,47 +228,80 @@ def point_sun( dt, P, sCi, sDs ):
 ###############################################################################
 
 
-# Forward search algorithm to solve for best action-value pair.
-def forward_search( si, d, Pi ):
-    if d == 0:
-        return (None,0)
-    a_best, U_best = None, -10000
-    if si in actions and si != 'Sun Pointing':
-        action_index = actions.index(si)
-        actions[action_index] = None
-    for sf in actions:
-        if sf is not None:
-            aBN, aBR = sC.attBN, sC.attBR
-            if sf == 'Sun Pointing':
-                Pf, δ = point_sun( 10*dt, Pi, sC, sDs )
-                R = reward_sun( Pi, λ, μ, δ )
-            else:
-                Pf, δ = point_deputy( 10*dt, Pi, sC, sf, sDs )
-                R = reward_deputy( Pi, λ, μ, δ )
-            Ap, Up = forward_search( sf, d-1, Pf )
-            U = bellman( sf, si, Pf, λ, R, γ, Up )
-            if U > U_best:
-                a_best, U_best = sf, U
-            sC.propagate_orbit( -1*δ )
-            sC.attBN = aBN
-            sC.attBR = aBR
-            for sDii in sDs:
-                sDii.propagate_orbit( -1*δ )
-    if si not in actions and si is not None and si != 'Initial':
-        actions[action_index] = si
-    #print('Depth =',d,'with parent',si,'and best action-value',a_best,U_best)
-    return a_best, U_best
-
-
-###############################################################################
-###############################################################################
-
-
-# Run the main pointing simulation below.
+# Run the main pointing simulation via one-step value iteration below.
 if __name__ == '__main__':
     
-    # a, u = forward_search( 'Initial', 3, P )
-    # print('\nOptimal action-value pair starts with', a, 'with utility', u)
+    mission_time = []
     
+    for trial in range(trials):
+        
+        # First, re-initialize all spacecraft.
+        sDs = []
+        
+        # Import the ephemeris of all spacecraft from the CSV file.
+        name_index = 0
+        scenario_path = os.getcwd() + '\\scenarios\\pointing_policy'
+        with open( scenario_path + '\\ephemeris.csv' ) as ephemeris:
+            ephemeris_csv = csv.reader( ephemeris, delimiter=',' )
+            for row in ephemeris_csv:
+                if 'Header' in row:
+                    continue
+                else:
+                    a,e,i = float(row[1]), float(row[2]), float(row[3])
+                    w,R,M = float(row[4]), float(row[5]), float(row[6])
+                    if 'Chief' in row[0]: # Grab the chief SC parameters.
+                        sC = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
+                        sC.name = spacecraft.names[ name_index ]
+                    if 'Deputy' in row[0]: # Grab the deputy SC parameters.
+                        sD = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
+                        #sD.name = spacecraft.names[ name_index ]
+                        sD.name = str(name_index+1)
+                        sDs.append( sD )
+                    name_index += 1
+        
+        # Initialise the action space.
+        actions = ['Sun Pointing'] + sDs
 
+        # Now, perform the one-step look-ahead simulations.
+        # print('One step look-ahead for shortest pointing path. \n')
+        Af, δf, Tf = 'Initial', 0.0, 1
+        U = np.zeros( len(actions) )
+        while len(actions) > 1:
+            # print('Epoch', Tf, 'with current duration', δf, 'and power', P)
+            R, T = [], transition_matrix( P, λ, len(actions) )
+            # Compute rewards based on hallucinations, make deep copies as the
+            # hallucinated trajectories should not interfere with the actual one.
+            for A in actions:
+                Pc, Ac, sCc = deepcopy(P), deepcopy(A), deepcopy(sC) 
+                if Ac == 'Sun Pointing':
+                    Pcf, δ = point_sun( dt, Pc, sCc, [] )
+                    Ri = reward_sun(Pc, λ, μ, δ)
+                    R.append( Ri )
+                else:
+                    Pcf, δ = point_deputy( dt, Pc, sCc, Ac, [Ac] )
+                    Ri = reward_deputy(Pc, λ, μ, δ)
+                    R.append( Ri )
+            R = np.array(R) # Compute rewards vector
+            U = R + γ * T @ U # Compute the Bellman update
+            Af = actions[ np.argmax(U) ] # Pick the action with highest score
+            # Perform the actual trajectory now.
+            if Af != 'Sun Pointing':
+                P, δi = point_deputy( dt, P, sC, Af, sDs )
+                actions.remove( Af )
+                U = np.delete( U, np.argmax(U) )
+            else:
+                P, δi = point_sun( dt, P, sC, sDs )
+            δf = δf + δi # Update the time taken.
+            # print('Completed: duration', δf, 'action', Af, 'power', P, '\n')
+            Tf = Tf + 1
+        
+        # Record the mission execution time.
+        mission_time.append( δf )
+        print('Completed Trial',trial)
+    
+    # Record the mission execution time in a file.
+    f = open('raw_policy3_lookahead.txt','w')
+    for time in mission_time:
+        f.write(str(time)+'\n')
+    f.close()
     

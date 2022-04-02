@@ -33,9 +33,6 @@ while os.getcwd().split("\\")[-1] != "quadrant":
 # Import source libraries.
 from source import spacecraft, attitudes, targeting, feedback
 
-# Set the policy: 'random', 'greedy', 'lookahead', 'forward', 'mcts'
-mode = 'random'
-
 # The chief SC is the variable 'sC'. The list of deputies is sDs.
 sDs = []
 
@@ -251,10 +248,10 @@ def forward_search( si, d, Pi ):
             aBN, aBR = deepcopy(sC.attBN), deepcopy(sC.attBR)
             wBN, wBR = deepcopy(sC.ohmBN), deepcopy(sC.ohmBR)
             if sf == 'Sun Pointing':
-                Pf, δ = point_sun( 10*dt, Pi, sC, sDs )
+                Pf, δ = point_sun( dt, Pi, sC, sDs )
                 R = reward_sun( Pi, λ, μ, δ )
             else:
-                Pf, δ = point_deputy( 10*dt, Pi, sC, sf, sDs )
+                Pf, δ = point_deputy( dt, Pi, sC, sf, sDs )
                 R = reward_deputy( Pi, λ, μ, δ )
             Ap, Up = forward_search( sf, d-1, Pf )
             U = bellman( sf, si, Pf, λ, R, γ, Up )
@@ -277,7 +274,8 @@ def forward_search( si, d, Pi ):
 
 # Run the main pointing simulation via forward search below.
 if __name__ == '__main__':
-    Af, Uf, δf, Tf, Df = 'Initial', 0.0, 0.0, 1, 5
+    Af, Uf, δf, Tf, Df = 'Initial', 0.0, 0.0, 1, 3
+    print('Forward search for shortest pointing path with depth =',Df,'. \n')
     while len(actions) > 1:
         print('Epoch', Tf, 'with current duration', δf, 'and power', P)
         Af, U = forward_search( 'Initial', min( Df, len(actions) ), P )

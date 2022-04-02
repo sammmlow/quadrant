@@ -33,9 +33,6 @@ while os.getcwd().split("\\")[-1] != "quadrant":
 # Import source libraries.
 from source import spacecraft, attitudes, targeting, feedback
 
-# Set the policy: 'random', 'greedy', 'lookahead', 'forward', 'mcts'
-mode = 'random'
-
 # The chief SC is the variable 'sC'. The list of deputies is sDs.
 sDs = []
 
@@ -64,9 +61,9 @@ with open( scenario_path + '\\ephemeris.csv' ) as ephemeris:
 dt, ct = 1.0, 1.0
 
 # Initialise reinforcement learning hyper-parameters.
-γ = 0.85  # Gamma: Discount factor in Bellman update ( < 1.0)
-λ = 2.0   # Lambda: Power charging urgency constant (float)
-μ = 0.001 # Mu: Soft max precision parameter for rewards (float)
+γ = 0.85       # Gamma: Discount factor in Bellman update ( < 1.0)
+λ = 2.0        # Lambda: Power charging urgency constant (float)
+μ = 0.00017783 # Mu: Soft max precision parameter for rewards (float)
 
 # Initialise the resource parameters.
 P        = 1.0    # Power level, must be between 0 and 1
@@ -78,13 +75,6 @@ Kp, Ki, Kd = 0.016, 0.0, 0.4 # Initial (Lyapunov) control gains
 
 # Initialise the action space.
 actions = ['Sun Pointing'] + sDs
-
-# Initialise arrays for plotting the dynamics.
-aBR_array = np.empty((0,4), float) # Quarternions body-to-reference 
-aBN_array = np.empty((0,4), float) # Quarternions body-to-inertial 
-wBR_array = np.empty((0,4), float) # Body angular velocities to reference
-wBN_array = np.empty((0,4), float) # Body angular velocities to inertial
-trq_array = np.empty((0,4), float) # Control torque applied in body frame
 
 
 ###############################################################################
@@ -240,6 +230,7 @@ def point_sun( dt, P, sCi, sDs ):
 
 # Run the main pointing simulation via forward search below.
 if __name__ == '__main__':
+    print('Random search for shortest path. \n')
     Af, δf, Tf = 'Initial', 0.0, 1
     while len(actions) > 1:
         print('Epoch', Tf, 'with current duration', δf, 'and power', P)
