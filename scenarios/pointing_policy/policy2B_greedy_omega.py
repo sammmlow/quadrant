@@ -37,7 +37,7 @@ from source import spacecraft, attitudes, targeting, feedback, deputy
 # set > 1, then the orbital elements of the deputies will be randomized
 # about the elements given in the ephemeris file. If trials = 1, then the
 # exact ephemeris elements will be used.
-trials = 1
+trials = 1000
 
 # Initialise dynamic and control time step.
 dt, ct = 1.0, 1.0
@@ -171,6 +171,8 @@ def point_deputy( dt, P, sCi, sDi, sDs ):
         if sum( np.abs( sCi.attBR[1:] ) ) < 0.001:
             if abs( sCi.attBR[0] ) > 0.999:
                 break # Break loop once attitude converges to 0.1% error.
+        if δ > 5000.0:
+            break
     P -= δ * P_drain
     return P, δ # Return power level and duration.
 
@@ -191,6 +193,8 @@ def point_sun( dt, P, sCi, sDs ):
         if sum( np.abs( sCi.attBR[1:] ) ) < 0.001:
             if abs( sCi.attBR[0] ) > 0.999:
                 break # Break loop once attitude converges to 0.1% error.
+        if δ > 5000.0:
+            break
     while P < 1.0: # Begin charging process
         dcmRN, ohmRN = targeting.reference_sun()
         sCi = feedback.control( sCi, Kp, Ki, Kd, dcmRN, ohmRN )
@@ -207,10 +211,11 @@ def point_sun( dt, P, sCi, sDs ):
 ###############################################################################
 
 
+# Run the main pointing simulation via greedy algorithm below.
 if __name__ == '__main__':
     
     mission_time = []
-    print('Random search for shortest path. \n')
+    print('Greedy search for shortest path. \n')
     
     for trial in range(trials):
         
@@ -242,7 +247,7 @@ if __name__ == '__main__':
                             sD = spacecraft.Spacecraft(elements=[a,e,i,w,R,M])
                         else:
                             a,e,i,w,R,M = deputy.deputy( a, e, i, w, R, M,
-                                                          fR,fI,fO,fC,fP,fT )
+                                                         fR,fI,fO,fC,fP,fT )
                             sD = spacecraft.Spacecraft(elements=[a,e,i,w,R,M])
                         sD.name = str(name_index+1)
                         sDs.append( sD )
@@ -250,15 +255,23 @@ if __name__ == '__main__':
         
         # Initialise the action space.
         actions = ['Sun Pointing'] + sDs
-    
+        
         # Begin the solution for optimal pointing sequence.
         Af, δf, Tf = 'Initial', 0.0, 1
         while len(actions) > 1:
             if trials == 1:
                 print('Epoch',Tf,'with current duration',δf,'and power',P)
             if P > 0.2:
-                Af_index = np.random.randint( 0, len(actions)-1 )
-                Af = actions[ Af_index + 1 ] # Random deputy pointing
+                deputy_best, angle_best = None, 360.0
+                for sDi in actions[1:]: # For every deputy, pick the closest.
+                    sCc = deepcopy(sC)
+                    dcmRN, ohmRN = targeting.reference_deputy( dt, sCc, sDi )
+                    sCc = feedback.control( sCc, Kp, Ki, Kd, dcmRN, ohmRN )
+                    angle = np.linalg.norm(sCc.ohmBR) # Get angular speed.
+                    if abs(angle) < abs(angle_best):
+                        angle_best = angle
+                        deputy_best = sDi
+                Af = deputy_best
                 P, δi = point_deputy( dt, P, sC, Af, sDs )
                 actions.remove( Af )
             else:
@@ -277,8 +290,7 @@ if __name__ == '__main__':
             print('Completed trial',trial)
     
     # Record the mission execution time in a file.
-    f = open('raw_policy1_random.txt','w')
+    f = open('raw_policy2B_greedy_omega.txt','w')
     for time in mission_time:
         f.write(str(time)+'\n')
     f.close()
-    

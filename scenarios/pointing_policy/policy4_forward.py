@@ -37,10 +37,10 @@ from source import spacecraft, attitudes, targeting, feedback, deputy
 # set > 1, then the orbital elements of the deputies will be randomized
 # about the elements given in the ephemeris file. If trials = 1, then the
 # exact ephemeris elements will be used.
-trials = 1
+trials = 50
 
 # Initialize the depth for forward search
-depth = 3
+depth = 2
 
 # Initialise dynamic and control time step.
 dt, ct = 1.0, 1.0

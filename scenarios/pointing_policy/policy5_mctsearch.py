@@ -22,67 +22,41 @@
 
 # Import global libraries.
 import numpy as np
+import os, csv, math
+from copy import deepcopy
 import matplotlib.pyplot as plt
-import os, csv, math, copy, itertools
 
 # Move the current directory up until the Quadrant root.
 while os.getcwd().split("\\")[-1] != "quadrant":
     os.chdir("..")
 
 # Import source libraries.
-from source import spacecraft, attitudes, targeting, feedback
+from source import spacecraft, attitudes, targeting, feedback, deputy
 
-# Set the policy: 'random', 'greedy', 'lookahead', 'forward', 'mcts'
-mode = 'random'
+# Initialise the number of Monte Carlo trials. If the number of trials is
+# set > 1, then the orbital elements of the deputies will be randomized
+# about the elements given in the ephemeris file. If trials = 1, then the
+# exact ephemeris elements will be used.
+trials = 50
 
-# The chief SC is the variable 'sC'. The list of deputies is sDs.
-sDs = []
-
-# Import the ephemeris of all spacecraft from the CSV file.
-name_index = 0
-scenario_path = os.getcwd() + '\\scenarios\\pointing_policy'
-with open( scenario_path + '\\ephemeris.csv' ) as ephemeris:
-    ephemeris_csv = csv.reader( ephemeris, delimiter=',' )
-    for row in ephemeris_csv:
-        if 'Header' in row:
-            continue
-        else:
-            a,e,i = float(row[1]), float(row[2]), float(row[3])
-            w,R,M = float(row[4]), float(row[5]), float(row[6])
-            if 'Chief' in row[0]: # Grab the chief SC parameters.
-                sC = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
-                sC.name = spacecraft.names[ name_index ]
-            if 'Deputy' in row[0]: # Grab the deputy SC parameters.
-                sD = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
-                sD.name = spacecraft.names[ name_index ]
-                sDs.append( sD )
-            name_index += 1
+# Initialize the depth for forward search
+depth = 2
 
 # Initialise dynamic and control time step.
 dt, ct = 1.0, 1.0
 
 # Initialise reinforcement learning hyper-parameters.
-γ = 0.85  # Gamma: Discount factor in Bellman update ( < 1.0)
-λ = 2.0   # Lambda: Power charging urgency constant (float)
-μ = 0.001 # Mu: Soft max precision parameter for rewards (float)
+γ = 0.75       # Gamma: Discount factor in Bellman update ( < 1.0)
+λ = 2.0        # Lambda: Power charging urgency constant (float)
+μ = 0.00017783 # Mu: Soft max precision parameter for rewards (float)
 
 # Initialise the resource parameters.
 P        = 1.0    # Power level, must be between 0 and 1
-P_drain  = 0.0001 # Power drain rate per second, between 0 and 1
-P_charge = 0.001  # Power charge rate per second, between 0 and 1
+P_drain  = 0.0005 # Power drain rate per second, between 0 and 1
+P_charge = 0.0025 # Power charge rate per second, between 0 and 1
 
 # Initialise attitude control gains
 Kp, Ki, Kd = 0.016, 0.0, 0.4 # Initial (Lyapunov) control gains
-
-# Initialise the action space.
-actions = ['Sun Pointing'] + sDs
-
-# Initialise arrays for plotting the dynamics.
-aBR_array = np.empty((0,4), float) # Quarternions body-to-reference 
-aBN_array = np.empty((0,4), float) # Quarternions body-to-inertial 
-wBR_array = np.empty((0,4), float) # Body angular velocities to reference
-wBN_array = np.empty((0,4), float) # Body angular velocities to inertial
-trq_array = np.empty((0,4), float) # Control torque applied in body frame
 
 
 ###############################################################################
@@ -106,7 +80,7 @@ def reward_deputy( P, λ, μ, δ ):
     # μ = soft-max hyper-parameter to tune reward hardness.
     # δ = individual expected slew time to a particular deputy.
     if P <= 0.01:
-        return -1.0
+        return 0.0
     else:
         α = ( 1 - max(0,P) ) ** λ
         return (1-α) / math.exp(μ*δ)
@@ -114,11 +88,7 @@ def reward_deputy( P, λ, μ, δ ):
 
 # Define the plotting of rewards.
 def plot_rewards():
-    
-    # Close all plots
     plt.close('all')
-    
-    # Plot contour plots of the rewards for resource vs mission.
     p_axis = np.arange( 0.02, 1.0, 0.01 )
     t_axis = np.arange( 0.0, 1500.0, 10.0 )
     p_grid, t_grid = np.meshgrid( p_axis, t_axis )
@@ -161,7 +131,8 @@ def transition( Sf, Si, P, λ ):
         return 1-α
     else:
         return 1.0
-    
+
+
 # Define the transition matrix used in value iteration.
 def transition_matrix( P, λ, n ):
     # P  = power level of chief spacecraft, between 0 and 1.
@@ -188,11 +159,9 @@ def bellman( Sf, Si, P, λ, R, γ, U1 ):
     return U2
 
 
-# Define a function hallucinating slew duration to a deputy at 10X time step.
-# This function will also update the orbits of all deputies in the simulation.
+# Define a function hallucinating slew duration to a deputy. This function 
+# will also propagate orbits of all deputies in the simulation.
 def point_deputy( dt, P, sCi, sDi, sDs ):
-    
-    # Begin deputy pointing
     δ = 0.0
     while True:
         dcmRN, ohmRN = targeting.reference_deputy( dt, sCi, sDi )
@@ -205,17 +174,15 @@ def point_deputy( dt, P, sCi, sDi, sDs ):
         if sum( np.abs( sCi.attBR[1:] ) ) < 0.001:
             if abs( sCi.attBR[0] ) > 0.999:
                 break # Break loop once attitude converges to 0.1% error.
-        
     P -= δ * P_drain
     return P, δ # Return power level and duration.
 
 
-# Define a function hallucinating slew and charge duration to the sun.
+# Define a function hallucinating slew and charge duration to the sun. This 
+# function will also propagate orbits of all deputies in the simulation.
 def point_sun( dt, P, sCi, sDs ):
-    
-    # Begin pointing to the sun (battery is still discharging)
     δ = 0.0
-    while True:
+    while True: # Attitude maneuver to the sun
         dcmRN, ohmRN = targeting.reference_sun()
         sCi = feedback.control( sCi, Kp, Ki, Kd, dcmRN, ohmRN )
         sCi.propagate_orbit( dt )
@@ -227,9 +194,7 @@ def point_sun( dt, P, sCi, sDs ):
         if sum( np.abs( sCi.attBR[1:] ) ) < 0.001:
             if abs( sCi.attBR[0] ) > 0.999:
                 break # Break loop once attitude converges to 0.1% error.
-    
-    # Beging charging battery
-    while P < 1.0:
+    while P < 1.0: # Begin charging process
         dcmRN, ohmRN = targeting.reference_sun()
         sCi = feedback.control( sCi, Kp, Ki, Kd, dcmRN, ohmRN )
         sCi.propagate_orbit( dt )
@@ -238,7 +203,6 @@ def point_sun( dt, P, sCi, sDs ):
             sDii.propagate_orbit( dt ) # All spacecraft must move!
         δ += dt
         P += dt * P_charge
-        
     return 1.0, δ # Return power level and duration.
 
 
@@ -256,20 +220,60 @@ def forward_search( si, d, Pi ):
         actions[action_index] = None
     for sf in actions:
         if sf is not None:
-            aBN, aBR = sC.attBN, sC.attBR
+            aBN, aBR = deepcopy(sC.attBN), deepcopy(sC.attBR)
+            wBN, wBR = deepcopy(sC.ohmBN), deepcopy(sC.ohmBR)
             if sf == 'Sun Pointing':
-                Pf, δ = point_sun( 10*dt, Pi, sC, sDs )
+                Pf, δ = point_sun( dt, Pi, sC, sDs )
                 R = reward_sun( Pi, λ, μ, δ )
             else:
-                Pf, δ = point_deputy( 10*dt, Pi, sC, sf, sDs )
+                Pf, δ = point_deputy( dt, Pi, sC, sf, sDs )
                 R = reward_deputy( Pi, λ, μ, δ )
             Ap, Up = forward_search( sf, d-1, Pf )
             U = bellman( sf, si, Pf, λ, R, γ, Up )
             if U > U_best:
                 a_best, U_best = sf, U
             sC.propagate_orbit( -1*δ )
-            sC.attBN = aBN
-            sC.attBR = aBR
+            sC.attBN, sC.attBR = aBN, aBR
+            sC.ohmBN, sC.ohmBR = wBN, wBR
+            for sDii in sDs:
+                sDii.propagate_orbit( -1*δ )
+    if si not in actions and si is not None and si != 'Initial':
+        actions[action_index] = si
+    #print('Depth =',d,'with parent',si,'and best action-value',a_best,U_best)
+    return a_best, U_best
+
+# MCTS takes in a deepcopy of the current action space and performs 'm'
+# simulated rollouts at the leaf nodes until the terminal nodes. Assume a
+# depth of 1 for computational feasibility. 
+
+def montecarlo_tree_search( si, d, Pi ):
+    for sf in actions:
+        
+    
+    if d == 0:
+        return (None,0)
+    a_best, U_best = None, -10000
+    if si in actions and si != 'Sun Pointing':
+        action_index = actions.index(si)
+        actions[action_index] = None
+    
+    for sf in actions:
+        if sf is not None:
+            aBN, aBR = deepcopy(sC.attBN), deepcopy(sC.attBR)
+            wBN, wBR = deepcopy(sC.ohmBN), deepcopy(sC.ohmBR)
+            if sf == 'Sun Pointing':
+                Pf, δ = point_sun( dt, Pi, sC, sDs )
+                R = reward_sun( Pi, λ, μ, δ )
+            else:
+                Pf, δ = point_deputy( dt, Pi, sC, sf, sDs )
+                R = reward_deputy( Pi, λ, μ, δ )
+            Ap, Up = forward_search( sf, d-1, Pf )
+            U = bellman( sf, si, Pf, λ, R, γ, Up )
+            if U > U_best:
+                a_best, U_best = sf, U
+            sC.propagate_orbit( -1*δ )
+            sC.attBN, sC.attBR = aBN, aBR
+            sC.ohmBN, sC.ohmBR = wBN, wBR
             for sDii in sDs:
                 sDii.propagate_orbit( -1*δ )
     if si not in actions and si is not None and si != 'Initial':
@@ -282,11 +286,81 @@ def forward_search( si, d, Pi ):
 ###############################################################################
 
 
-# Run the main pointing simulation below.
+# Run the main pointing simulation via forward search below.
 if __name__ == '__main__':
     
-    # a, u = forward_search( 'Initial', 3, P )
-    # print('\nOptimal action-value pair starts with', a, 'with utility', u)
+    mission_time = []
+    print('Forward search for shortest pointing path with depth =',depth,'\n')
     
-
+    for trial in range(trials):
+        
+        # First, re-initialize all spacecraft.
+        P, sDs = 1.0, []
+        
+        # Import the ephemeris of all spacecraft from the CSV file.
+        name_index = 0
+        scenario_path = os.getcwd() + '\\scenarios\\pointing_policy'
+        with open( scenario_path + '\\ephemeris.csv' ) as ephemeris:
+            ephemeris_csv = csv.reader( ephemeris, delimiter=',' )
+            for row in ephemeris_csv:
+                if 'Header' in row:
+                    continue
+                else:
+                    a,e,i = float(row[1]), float(row[2]), float(row[3])
+                    w,R,M = float(row[4]), float(row[5]), float(row[6])
+                    if 'Chief' in row[0]: # Grab the chief SC parameters.
+                        sC = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
+                        sC.name = spacecraft.names[ name_index ]
+                    if 'Deputy' in row[0]: # Grab the deputy SC parameters.
+                        fR = 4*np.random.random()+1 # Random ∈ [1,5 ] km.
+                        fI = 2*fR                   # Random ∈ [2,10] km.
+                        fO = 0.0                    # No in-track offset.
+                        fC = 4*np.random.random()+1 # Random ∈ [1,5 ] km.
+                        fP = np.random.random() * 360.0 - 180.0
+                        fT = np.random.random() * 360.0 - 180.0
+                        if trials == 1:
+                            sD = spacecraft.Spacecraft(elements=[a,e,i,w,R,M])
+                        else:
+                            a,e,i,w,R,M = deputy.deputy( a, e, i, w, R, M,
+                                                         fR,fI,fO,fC,fP,fT )
+                            sD = spacecraft.Spacecraft(elements=[a,e,i,w,R,M])
+                        sD.name = str(name_index+1)
+                        sDs.append( sD )
+                    name_index += 1
+        
+        # Initialise the action space.
+        actions = ['Sun Pointing'] + sDs
+        
+        # Begin the solution for optimal pointing sequence.
+        Af, Uf, δf, Tf = 'Initial', 0.0, 0.0, 1
+        while len(actions) > 1:
+            if trials == 1:
+                print('Epoch',Tf,'with current duration',δf,'and power',P)
+            Af, U = forward_search( 'Initial', min( depth, len(actions) ), P )
+            if trials == 1:
+                print('Completed search at current duration',δf,'and power',P)
+                print('Optimal action-value pair:', Af, U)
+            if Af != 'Sun Pointing':
+                P, δi = point_deputy( dt, P, sC, Af, sDs )
+                actions.remove( Af )
+            else:
+                P, δi = point_sun( dt, P, sC, sDs ) 
+            δf = δf + δi
+            Uf = Uf + U
+            if trials == 1:
+                print('Completed: duration',δf,'power',P,'utility',Uf,'\n')
+            Tf = Tf + 1
+            
+        # Record the mission execution time.
+        mission_time.append( δf )
+        if trials == 1:
+            print('Completed the demonstration scenario!')
+        else:
+            print('Completed trial',trial)
+    
+    # Record the mission execution time in a file.
+    f = open('raw_policy5_mctsearch.txt','w')
+    for time in mission_time:
+        f.write(str(time)+'\n')
+    f.close()
     
