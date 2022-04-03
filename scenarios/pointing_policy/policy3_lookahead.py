@@ -31,34 +31,13 @@ while os.getcwd().split("\\")[-1] != "quadrant":
     os.chdir("..")
 
 # Import source libraries.
-from source import spacecraft, attitudes, targeting, feedback
+from source import spacecraft, attitudes, targeting, feedback, deputy
 
-# # The chief SC is the variable 'sC'. The list of deputies is sDs.
-# sDs = []
-
-# # Import the ephemeris of all spacecraft from the CSV file.
-# name_index = 0
-# scenario_path = os.getcwd() + '\\scenarios\\pointing_policy'
-# with open( scenario_path + '\\ephemeris.csv' ) as ephemeris:
-#     ephemeris_csv = csv.reader( ephemeris, delimiter=',' )
-#     for row in ephemeris_csv:
-#         if 'Header' in row:
-#             continue
-#         else:
-#             a,e,i = float(row[1]), float(row[2]), float(row[3])
-#             w,R,M = float(row[4]), float(row[5]), float(row[6])
-#             if 'Chief' in row[0]: # Grab the chief SC parameters.
-#                 sC = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
-#                 sC.name = spacecraft.names[ name_index ]
-#             if 'Deputy' in row[0]: # Grab the deputy SC parameters.
-#                 sD = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
-#                 #sD.name = spacecraft.names[ name_index ]
-#                 sD.name = str(name_index+1)
-#                 sDs.append( sD )
-#             name_index += 1
-
-# Initialise the number of Monte Carlo trials.
-trials = 10
+# Initialise the number of Monte Carlo trials. If the number of trials is
+# set > 1, then the orbital elements of the deputies will be randomized
+# about the elements given in the ephemeris file. If trials = 1, then the
+# exact ephemeris elements will be used.
+trials = 1
 
 # Initialise dynamic and control time step.
 dt, ct = 1.0, 1.0
@@ -70,8 +49,8 @@ dt, ct = 1.0, 1.0
 
 # Initialise the resource parameters.
 P        = 1.0    # Power level, must be between 0 and 1
-P_drain  = 0.0002 # Power drain rate per second, between 0 and 1
-P_charge = 0.001  # Power charge rate per second, between 0 and 1
+P_drain  = 0.0005 # Power drain rate per second, between 0 and 1
+P_charge = 0.0025 # Power charge rate per second, between 0 and 1
 
 # Initialise attitude control gains
 Kp, Ki, Kd = 0.016, 0.0, 0.4 # Initial (Lyapunov) control gains
@@ -228,15 +207,15 @@ def point_sun( dt, P, sCi, sDs ):
 ###############################################################################
 
 
-# Run the main pointing simulation via one-step value iteration below.
 if __name__ == '__main__':
     
     mission_time = []
+    print('One step look-ahead for shortest path. \n')
     
     for trial in range(trials):
         
         # First, re-initialize all spacecraft.
-        sDs = []
+        P, sDs = 1.0, []
         
         # Import the ephemeris of all spacecraft from the CSV file.
         name_index = 0
@@ -253,8 +232,18 @@ if __name__ == '__main__':
                         sC = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
                         sC.name = spacecraft.names[ name_index ]
                     if 'Deputy' in row[0]: # Grab the deputy SC parameters.
-                        sD = spacecraft.Spacecraft( elements = [a,e,i,w,R,M] )
-                        #sD.name = spacecraft.names[ name_index ]
+                        fR = 4*np.random.random()+1 # Random ∈ [1,5 ] km.
+                        fI = 2*fR                   # Random ∈ [2,10] km.
+                        fO = 0.0                    # No in-track offset.
+                        fC = 4*np.random.random()+1 # Random ∈ [1,5 ] km.
+                        fP = np.random.random() * 360.0 - 180.0
+                        fT = np.random.random() * 360.0 - 180.0
+                        if trials == 1:
+                            sD = spacecraft.Spacecraft(elements=[a,e,i,w,R,M])
+                        else:
+                            a,e,i,w,R,M = deputy.deputy( a, e, i, w, R, M,
+                                                         fR,fI,fO,fC,fP,fT )
+                            sD = spacecraft.Spacecraft(elements=[a,e,i,w,R,M])
                         sD.name = str(name_index+1)
                         sDs.append( sD )
                     name_index += 1
@@ -262,15 +251,15 @@ if __name__ == '__main__':
         # Initialise the action space.
         actions = ['Sun Pointing'] + sDs
 
-        # Now, perform the one-step look-ahead simulations.
-        # print('One step look-ahead for shortest pointing path. \n')
+        # Begin the solution for optimal pointing sequence.
         Af, δf, Tf = 'Initial', 0.0, 1
         U = np.zeros( len(actions) )
         while len(actions) > 1:
-            # print('Epoch', Tf, 'with current duration', δf, 'and power', P)
+            if trials == 1:
+                print('Epoch',Tf,'with current duration',δf,'and power',P)
             R, T = [], transition_matrix( P, λ, len(actions) )
             # Compute rewards based on hallucinations, make deep copies as the
-            # hallucinated trajectories should not interfere with the actual one.
+            # hallucinated trajectories should not interfere with actual one.
             for A in actions:
                 Pc, Ac, sCc = deepcopy(P), deepcopy(A), deepcopy(sC) 
                 if Ac == 'Sun Pointing':
@@ -292,12 +281,16 @@ if __name__ == '__main__':
             else:
                 P, δi = point_sun( dt, P, sC, sDs )
             δf = δf + δi # Update the time taken.
-            # print('Completed: duration', δf, 'action', Af, 'power', P, '\n')
+            if trials == 1:
+                print('Completed! Duration',δf,'action',Af,'power',P,'\n')
             Tf = Tf + 1
         
         # Record the mission execution time.
         mission_time.append( δf )
-        print('Completed Trial',trial)
+        if trials == 1:
+            print('Completed the demonstration scenario!')
+        else:
+            print('Completed trial',trial)
     
     # Record the mission execution time in a file.
     f = open('raw_policy3_lookahead.txt','w')
