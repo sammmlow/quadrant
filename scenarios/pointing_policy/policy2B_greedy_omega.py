@@ -37,7 +37,7 @@ from source import spacecraft, attitudes, targeting, feedback, deputy
 # set > 1, then the orbital elements of the deputies will be randomized
 # about the elements given in the ephemeris file. If trials = 1, then the
 # exact ephemeris elements will be used.
-trials = 1000
+trials = 1
 
 # Initialise dynamic and control time step.
 dt, ct = 1.0, 1.0
@@ -215,7 +215,7 @@ def point_sun( dt, P, sCi, sDs ):
 if __name__ == '__main__':
     
     mission_time = []
-    print('Greedy search for shortest path. \n')
+    print('Greedy search for shortest path based on angle rates. \n')
     
     for trial in range(trials):
         

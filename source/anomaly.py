@@ -47,7 +47,7 @@ def M2E(M,e):
     ei = e         # Initialise the float eccentricity
     residual = 1.0 # Initialise convergence residual
     
-    while residual >= 0.00002:#0.000001:
+    while residual >= 0.000001:
         
         fn = E1 - (ei*np.sin(E1)) - M
         fd = 1 - (ei*np.cos(E1))

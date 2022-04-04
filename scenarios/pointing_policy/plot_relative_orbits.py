@@ -9,8 +9,10 @@
 ##     \_  /|_____| /--\ |____/|_|\_\ /--\ |_\___| |_|                       ##
 ##       \/                                               v 0.0              ##
 ##                                                                           ##
-##    Scenario: Optimal Pointing Sequences in Spacecraft Formation Flying    ##
-##    using Online Planning with Resource Constraints                        ##
+##    Optimal Pointing Sequences in Spacecraft Formation Flying              ##
+##    using Online Planning with Resource Constraints.                       ##
+##                                                                           ##
+##    Plotting code for relative orbits in demonstration scenario.           ##
 ##                                                                           ##
 ##    Written by Samuel Y. W. Low.                                           ##
 ##    Advised by Professor Mykel J. Kochenderfer                             ##
